@@ -5,6 +5,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {addToCart,cartView,completeCheckout,createCheckout,getCart,getCheckout,getProduct,money,recordProfiling,searchProducts} from './store.js';
 
+const envPath=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../.env');
+if(fs.existsSync(envPath))for(const line of fs.readFileSync(envPath,'utf8').split(/\r?\n/)){const match=line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);if(match&&!process.env[match[1]])process.env[match[1]]=match[2].replace(/^['"]|['"]$/g,'')}
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../public');
 const port=Number(process.env.PORT||3000),base=process.env.PUBLIC_BASE_URL||`http://localhost:${port}`;
 const tools=[

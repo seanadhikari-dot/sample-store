@@ -6,7 +6,8 @@ Runnable Node.js sample with no third-party dependencies. It includes a product 
 
 ```bash
 cp .env.example .env
-# export values from .env, or use your deployment's environment settings
+# Values in .env load automatically for local development.
+# For Railway, set the same values in the service's Variables settings.
 npm test
 npm start
 ```
