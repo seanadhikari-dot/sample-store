@@ -6,8 +6,7 @@ Runnable Node.js sample with no third-party dependencies. It includes a product 
 
 ```bash
 cp .env.example .env
-# Values in .env load automatically for local development.
-# For Railway, set the same values in the service's Variables settings.
+# export values from .env, or use your deployment's environment settings
 npm test
 npm start
 ```
@@ -42,15 +41,6 @@ threatmetrix.profile(domain, orgId, sessionId, 'checkout', threatmetrix.load_met
 
 Use the same session ID for a server-to-server Session Query before payment authorization. Never expose Session Query credentials in the browser. The demo currently marks risk as accepted and does not collect real payment.
 
-<<<<<<< HEAD
-The hosted checkout shows the profiling lifecycle: it creates a unique session ID, starts browser-side profiling, and records only the lifecycle state (`started`, `unavailable`, or `failed`) with a timestamp. It does not claim that a risk decision has been made. For production, make the Session Query from your server, persist its result, and enforce the decision before payment authorization.
-
-## Demo flow
-
-Use the storefront to add items to its browser-persisted demo cart, then start checkout. Or, connect ChatGPT and ask it to find a product, add it to a cart, and begin checkout. The final order action happens only on the hosted checkout page.
-
-=======
->>>>>>> a210db5 (initial)
 ## Connect to ChatGPT
 
 Deploy behind public HTTPS or use a supported secure tunnel for development. Enable Developer mode, add the `/mcp` URL, inspect the tools, and test the workflow. The final order remains a user-confirmed action on checkout.
