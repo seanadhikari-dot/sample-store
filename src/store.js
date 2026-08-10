@@ -11,7 +11,12 @@ export const getProduct=id=>products.find(p=>p.id===id);
 export function addToCart(cartId,productId,quantity=1){const p=getProduct(productId);if(!p)throw Error('Product not found');if(quantity<1||quantity>p.inventory)throw Error('Invalid quantity or insufficient inventory');let c=cartId?carts.get(cartId):null;if(cartId&&!c)throw Error('Cart not found');if(!c){c={id:randomUUID(),items:[],updatedAt:new Date().toISOString()};carts.set(c.id,c)}const e=c.items.find(i=>i.productId===productId);if(e)e.quantity=Math.min(e.quantity+quantity,p.inventory);else c.items.push({productId,quantity});c.updatedAt=new Date().toISOString();return c;}
 export const getCart=id=>carts.get(id);
 export function cartView(c){const items=c.items.map(i=>{const p=getProduct(i.productId);return {...i,name:p.name,unitPriceCents:p.priceCents,lineTotalCents:p.priceCents*i.quantity}});const subtotalCents=items.reduce((s,i)=>s+i.lineTotalCents,0),taxCents=Math.round(subtotalCents*.06),shippingCents=subtotalCents>=10000?0:999;return{id:c.id,items,subtotalCents,taxCents,shippingCents,totalCents:subtotalCents+taxCents+shippingCents,currency:'USD'}}
+<<<<<<< HEAD
 export function createCheckout(cartId){const c=carts.get(cartId);if(!c||!c.items.length)throw Error('Cart is empty or missing');const x={id:randomUUID(),cartId,status:'pending',sessionId:randomUUID().replaceAll('-','').slice(0,32),createdAt:new Date().toISOString(),profiling:{provider:'threatmetrix',status:'not_started',updatedAt:null}};checkouts.set(x.id,x);return x}
 export const getCheckout=id=>checkouts.get(id);
 export function recordProfiling(id,status){const x=getCheckout(id);if(!x)throw Error('Checkout not found');if(!['started','complete','unavailable','failed'].includes(status))throw Error('Invalid profiling status');x.profiling.status=status;x.profiling.updatedAt=new Date().toISOString();return x}
+=======
+export function createCheckout(cartId){const c=carts.get(cartId);if(!c||!c.items.length)throw Error('Cart is empty or missing');const x={id:randomUUID(),cartId,status:'pending',sessionId:randomUUID().replaceAll('-','').slice(0,32),createdAt:new Date().toISOString()};checkouts.set(x.id,x);return x}
+export const getCheckout=id=>checkouts.get(id);
+>>>>>>> a210db5 (initial)
 export function completeCheckout(id){const x=checkouts.get(id);if(!x)throw Error('Checkout not found');x.status='completed';return x}
