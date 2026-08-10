@@ -1,0 +1,1 @@
+fetch('/api/products').then(r=>r.json()).then(ps=>{document.querySelector('#products').innerHTML=ps.map(p=>`<article><img src="${p.image}"><h2>${p.name}</h2><p>${p.description}</p><strong>$${(p.priceCents/100).toFixed(2)}</strong></article>`).join('')})
