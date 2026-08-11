@@ -124,7 +124,7 @@ const widget = `<!doctype html>
           try {
             if (typeof window.threatmetrix?.profile !== 'function') throw new Error('ThreatMetrix profile API was not registered');
             window.tmx_profiling_complete = () => tmx.innerHTML = '<b>Checkout protection verified</b>Your device profile was securely checked.';
-            window.threatmetrix.profile(profileConfig.tmxDomain, profileConfig.tmxOrgId, sessionId, 'checkout', window.threatmetrix.load_method.RUN_IMMEDIATE);
+            window.threatmetrix.profile(profileConfig.tmxDomain, profileConfig.tmxOrgId, sessionId, '10', window.threatmetrix.load_method.RUN_IMMEDIATE);
             console.info('ThreatMetrix profiling started', { domain: profileConfig.tmxDomain, sessionId });
             tmx.innerHTML = '<b>Checkout protection is active</b>Secure device profiling has started.';
           } catch (error) { console.error('ThreatMetrix profiling did not start', error); tmx.innerHTML = '<b>Checkout protection could not start</b>' + error.message; }
