@@ -16,8 +16,10 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
 const port = process.env.PORT || 3000;
 const base = process.env.PUBLIC_BASE_URL || `http://localhost:${port}`;
+const tmxDomain = process.env.TMX_PROFILING_DOMAIN || 'h.online-metrix.net';
+const tmxOrigin = `https://${tmxDomain}`;
 // Changing this URI forces ChatGPT to use the corrected MCP Apps resource.
-const checkoutUri = 'ui://sean-shop/checkout-v2.html';
+const checkoutUri = 'ui://sean-shop/checkout-v3.html';
 
 const tools = [
   {
@@ -54,12 +56,31 @@ const tools = [
 ];
 
 const widget = `<!doctype html>
-<html><body style="font:14px system-ui;padding:16px">
-  <h2>Sean Shop checkout</h2><div id="order">Loading order…</div>
-  <p id="tmx">Preparing ThreatMetrix device profiling…</p>
-  <button id="confirm" disabled>Confirm demo order</button>
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color: #13231f; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  * { box-sizing: border-box; } body { margin: 0; background: #f5f3ed; } button { font: inherit; }
+  .checkout { overflow: hidden; border: 1px solid #d9d8d1; border-radius: 20px; background: #fffefa; box-shadow: 0 18px 45px rgba(25, 39, 35, .12); }
+  .hero { padding: 25px 25px 22px; color: #f7f6ef; background: radial-gradient(circle at 94% 5%, #d9fb6a 0 5%, transparent 5.2%), linear-gradient(135deg, #16332d, #10231f); }
+  .eyebrow { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: #d9fb6a; font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+  .eyebrow::before { width: 7px; height: 7px; border-radius: 50%; background: currentColor; content: ""; }
+  h1 { margin: 0; font-family: Georgia, serif; font-size: 31px; font-weight: 400; letter-spacing: -.035em; } .hero p { max-width: 370px; margin: 9px 0 0; color: #b7c5be; font-size: 13px; line-height: 1.5; }
+  .content { padding: 22px 25px 25px; } .section-label { margin: 0 0 12px; color: #71807a; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .items { border-top: 1px solid #e6e4dc; } .item { display: grid; grid-template-columns: 38px 1fr auto; gap: 11px; align-items: center; padding: 12px 0; border-bottom: 1px solid #e6e4dc; }
+  .qty { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; color: #41685e; background: #e4f1e9; font-size: 12px; font-weight: 800; } .name { font-size: 13px; font-weight: 750; } .unit { margin-top: 3px; color: #77837e; font-size: 11px; } .price { font-size: 13px; font-weight: 800; }
+  .totals { margin: 18px 0; padding: 15px 16px; border-radius: 14px; background: #f3f2eb; } .line { display: flex; justify-content: space-between; padding: 4px 0; color: #68746f; font-size: 12px; } .line strong { color: #18312a; } .total { margin-top: 9px; padding-top: 12px; border-top: 1px solid #d9d8d0; color: #13231f; font-size: 16px; font-weight: 800; }
+  .trust { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid #dce8de; border-radius: 13px; background: #f5faf5; } .shield { display: grid; flex: none; width: 25px; height: 25px; place-items: center; border-radius: 9px; background: #173e35; color: #d9fb6a; font-size: 13px; } .trust-copy { color: #4d625a; font-size: 11px; line-height: 1.45; } .trust-copy b { display: block; margin-bottom: 1px; color: #1f473d; font-size: 12px; }
+  .cta { width: 100%; margin-top: 17px; padding: 14px 16px; border: 0; border-radius: 12px; color: #13231f; background: #d9fb6a; box-shadow: inset 0 -2px 0 rgba(0,0,0,.12); font-size: 14px; font-weight: 850; cursor: pointer; transition: transform .15s ease, filter .15s ease; } .cta:hover:not(:disabled) { filter: brightness(.96); transform: translateY(-1px); } .cta:disabled { cursor: wait; opacity: .52; }
+  .note { margin: 11px 0 0; color: #78827d; font-size: 10px; line-height: 1.4; text-align: center; } .error { padding: 24px; color: #893b32; text-align: center; } @media (max-width: 360px) { .hero, .content { padding-left: 18px; padding-right: 18px; } }
+</style></head><body>
+  <main class="checkout"><header class="hero"><div class="eyebrow">Sean Shop · secure checkout</div><h1>One last look.</h1><p>Your items are reserved while you review the final total.</p></header>
+  <section class="content"><p class="section-label">Your order</p><div id="order" class="items">Loading your cart…</div>
+  <div id="totals" class="totals" hidden></div>
+  <div class="trust"><span class="shield">✓</span><div id="tmx" class="trust-copy"><b>Verifying this checkout</b>Preparing secure device profiling…</div></div>
+  <button id="confirm" class="cta" disabled>Confirm demo order <span aria-hidden="true">→</span></button><p class="note">No payment details are collected in this demo.</p></section></main>
   <script>
     const order = document.querySelector('#order');
+    const totals = document.querySelector('#totals');
     const tmx = document.querySelector('#tmx');
     const confirm = document.querySelector('#confirm');
     const fmt = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n / 100);
@@ -68,10 +89,12 @@ const widget = `<!doctype html>
     function render(result) {
       checkout = result?.structuredContent?.checkout || result?.checkout || window.openai?.toolOutput?.checkout;
       if (!checkout?.cart) {
-        order.textContent = 'Checkout details are unavailable. Please reopen checkout from your cart.';
+        order.className = 'error'; order.textContent = 'Checkout details are unavailable. Please reopen checkout from your cart.';
         return;
       }
-      order.innerHTML = checkout.cart.items.map(i => '<p>' + i.name + ' × ' + i.quantity + ' — ' + fmt(i.lineTotalCents) + '</p>').join('') + '<hr><b>Total ' + fmt(checkout.cart.totalCents) + '</b>';
+      order.innerHTML = checkout.cart.items.map(i => '<div class="item"><span class="qty">' + i.quantity + '×</span><div><div class="name">' + i.name + '</div><div class="unit">' + fmt(i.unitPriceCents) + ' each</div></div><div class="price">' + fmt(i.lineTotalCents) + '</div></div>').join('');
+      totals.hidden = false;
+      totals.innerHTML = '<div class="line"><span>Subtotal</span><strong>' + fmt(checkout.cart.subtotalCents) + '</strong></div><div class="line"><span>Shipping</span><strong>' + fmt(checkout.cart.shippingCents) + '</strong></div><div class="line"><span>Estimated tax</span><strong>' + fmt(checkout.cart.taxCents) + '</strong></div><div class="line total"><span>Total</span><span>' + fmt(checkout.cart.totalCents) + '</span></div>';
       confirm.disabled = false;
       startProfiling(checkout.sessionId);
     }
@@ -81,19 +104,19 @@ const widget = `<!doctype html>
         const response = await fetch('${base}/api/config');
         if (!response.ok) throw new Error('Configuration request failed');
         const config = await response.json();
-        if (!config.tmxConfigured) { tmx.textContent = 'TMX is not configured.'; return; }
+        if (!config.tmxConfigured) { tmx.innerHTML = '<b>Checkout protection is not configured</b>Add TMX_ORG_ID (eight characters) to your deployment environment.'; return; }
         const script = document.createElement('script');
         script.src = '${base}/vendor/fp-clientlib-v6_0.js';
         script.onload = () => {
           try {
-            window.tmx_profiling_complete = id => tmx.textContent = 'ThreatMetrix profiling complete: ' + id;
+            window.tmx_profiling_complete = () => tmx.innerHTML = '<b>Checkout protection verified</b>Your device profile was securely checked.';
             threatmetrix.profile(config.tmxDomain, config.tmxOrgId, sessionId, 'checkout', threatmetrix.load_method.RUN_IMMEDIATE);
-            tmx.textContent = 'ThreatMetrix profiling started.';
-          } catch (_) { tmx.textContent = 'TMX profiling failed.'; }
+            tmx.innerHTML = '<b>Checkout protection is active</b>Secure device profiling is in progress.';
+          } catch (_) { tmx.innerHTML = '<b>Checkout protection could not start</b>Check your TMX credentials and profiling domain.'; }
         };
-        script.onerror = () => tmx.textContent = 'TMX profiling library could not load.';
+        script.onerror = () => tmx.innerHTML = '<b>Checkout protection could not load</b>Confirm PUBLIC_BASE_URL points to this HTTPS deployment.';
         document.head.append(script);
-      } catch (_) { tmx.textContent = 'TMX profiling is unavailable.'; }
+      } catch (_) { tmx.innerHTML = '<b>Checkout protection could not connect</b>Check PUBLIC_BASE_URL, HTTPS, and the deployment CORS settings.'; }
     }
 
     window.addEventListener('message', event => {
@@ -106,7 +129,7 @@ const widget = `<!doctype html>
       confirm.disabled = true;
       try {
         const result = await window.openai.callTool('complete_checkout', { checkoutId: checkout.id });
-        confirm.textContent = result.content?.[0]?.text || 'Confirmed';
+        confirm.textContent = result.content?.[0]?.text || 'Order confirmed ✓';
       } catch (_) { confirm.disabled = false; confirm.textContent = 'Could not confirm — try again'; }
     };
   </script>
@@ -138,7 +161,7 @@ function call(name, args) {
 }
 
 const json = (response, status, value, headers = {}) => {
-  response.writeHead(status, { 'content-type': 'application/json', ...headers });
+  response.writeHead(status, { 'content-type': 'application/json', 'access-control-allow-origin': '*', ...headers });
   response.end(JSON.stringify(value));
 };
 async function body(request) {
@@ -159,7 +182,7 @@ http.createServer(async (request, response) => {
       let result;
       if (rpc.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'sean-shop', version: '2.1.0' } };
       else if (rpc.method === 'tools/list') result = { tools };
-      else if (rpc.method === 'resources/read' && rpc.params?.uri === checkoutUri) result = { contents: [{ uri: checkoutUri, mimeType: 'text/html;profile=mcp-app', text: widget, _meta: { ui: { prefersBorder: true, csp: { connectDomains: [base], resourceDomains: [base] } } } }] };
+      else if (rpc.method === 'resources/read' && rpc.params?.uri === checkoutUri) result = { contents: [{ uri: checkoutUri, mimeType: 'text/html;profile=mcp-app', text: widget, _meta: { ui: { prefersBorder: true, csp: { connectDomains: [base, tmxOrigin], resourceDomains: [base, tmxOrigin] } } } }] };
       else if (rpc.method === 'tools/call') result = call(rpc.params?.name, rpc.params?.arguments || {});
       else return json(response, 200, { jsonrpc: '2.0', id, error: { code: -32601, message: 'Method not found' } }, headers);
       return json(response, 200, { jsonrpc: '2.0', id, result }, headers);
@@ -167,7 +190,7 @@ http.createServer(async (request, response) => {
     if (url.pathname === '/api/products') return json(response, 200, products);
     if (url.pathname === '/api/config') {
       const orgId = process.env.TMX_ORG_ID || '';
-      return json(response, 200, { tmxDomain: process.env.TMX_PROFILING_DOMAIN || 'h.online-metrix.net', tmxOrgId: orgId, tmxConfigured: /^[A-Za-z0-9]{8}$/.test(orgId) });
+      return json(response, 200, { tmxDomain, tmxOrgId: orgId, tmxConfigured: /^[A-Za-z0-9]{8}$/.test(orgId) });
     }
     const file = path.resolve(root, '.' + (url.pathname === '/' ? '/index.html' : url.pathname));
     if (!file.startsWith(root) || !fs.existsSync(file)) return json(response, 404, { error: 'Not found' });
