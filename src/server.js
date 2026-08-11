@@ -15,11 +15,16 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
 const port = process.env.PORT || 3000;
-const base = process.env.PUBLIC_BASE_URL || `http://localhost:${port}`;
+const base = (process.env.PUBLIC_BASE_URL || `http://localhost:${port}`).replace(/\/+$/, '').replace(/\/mcp$/, '');
 const tmxDomain = process.env.TMX_PROFILING_DOMAIN || 'h.online-metrix.net';
 const tmxOrigin = `https://${tmxDomain}`;
+const tmxConfig = JSON.stringify({
+  tmxDomain,
+  tmxOrgId: process.env.TMX_ORG_ID || '',
+  tmxConfigured: /^[A-Za-z0-9]{8}$/.test(process.env.TMX_ORG_ID || ''),
+}).replace(/</g, '\\u003c');
 // Changing this URI forces ChatGPT to use the corrected MCP Apps resource.
-const checkoutUri = 'ui://sean-shop/checkout-v3.html';
+const checkoutUri = 'ui://sean-shop/checkout-v4.html';
 
 const tools = [
   {
@@ -84,6 +89,7 @@ const widget = `<!doctype html>
     const tmx = document.querySelector('#tmx');
     const confirm = document.querySelector('#confirm');
     const fmt = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n / 100);
+    const profileConfig = ${tmxConfig};
     let checkout;
 
     function render(result) {
@@ -101,22 +107,19 @@ const widget = `<!doctype html>
 
     async function startProfiling(sessionId) {
       try {
-        const response = await fetch('${base}/api/config');
-        if (!response.ok) throw new Error('Configuration request failed');
-        const config = await response.json();
-        if (!config.tmxConfigured) { tmx.innerHTML = '<b>Checkout protection is not configured</b>Add TMX_ORG_ID (eight characters) to your deployment environment.'; return; }
+        if (!profileConfig.tmxConfigured) { tmx.innerHTML = '<b>Checkout protection is not configured</b>Add TMX_ORG_ID (eight characters) to your deployment environment.'; return; }
         const script = document.createElement('script');
         script.src = '${base}/vendor/fp-clientlib-v6_0.js';
         script.onload = () => {
           try {
             window.tmx_profiling_complete = () => tmx.innerHTML = '<b>Checkout protection verified</b>Your device profile was securely checked.';
-            threatmetrix.profile(config.tmxDomain, config.tmxOrgId, sessionId, 'checkout', threatmetrix.load_method.RUN_IMMEDIATE);
+            threatmetrix.profile(profileConfig.tmxDomain, profileConfig.tmxOrgId, sessionId, 'checkout', threatmetrix.load_method.RUN_IMMEDIATE);
             tmx.innerHTML = '<b>Checkout protection is active</b>Secure device profiling is in progress.';
           } catch (_) { tmx.innerHTML = '<b>Checkout protection could not start</b>Check your TMX credentials and profiling domain.'; }
         };
         script.onerror = () => tmx.innerHTML = '<b>Checkout protection could not load</b>Confirm PUBLIC_BASE_URL points to this HTTPS deployment.';
         document.head.append(script);
-      } catch (_) { tmx.innerHTML = '<b>Checkout protection could not connect</b>Check PUBLIC_BASE_URL, HTTPS, and the deployment CORS settings.'; }
+      } catch (_) { tmx.innerHTML = '<b>Checkout protection could not start</b>Check the ThreatMetrix configuration and deployment logs.'; }
     }
 
     window.addEventListener('message', event => {
