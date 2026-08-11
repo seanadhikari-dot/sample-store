@@ -16,15 +16,16 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
 const port = process.env.PORT || 3000;
 const base = (process.env.PUBLIC_BASE_URL || `http://localhost:${port}`).replace(/\/+$/, '').replace(/\/mcp$/, '');
-const tmxDomain = process.env.TMX_PROFILING_DOMAIN || 'h.online-metrix.net';
+const tmxDomain = (process.env.TMX_PROFILING_DOMAIN || 'h.online-metrix.net').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
 const tmxOrigin = `https://${tmxDomain}`;
+const tmxOrgId = process.env.TMX_ORG_ID || '';
 const tmxConfig = JSON.stringify({
   tmxDomain,
-  tmxOrgId: process.env.TMX_ORG_ID || '',
-  tmxConfigured: /^[A-Za-z0-9]{8}$/.test(process.env.TMX_ORG_ID || ''),
+  tmxOrgId,
+  tmxConfigured: /^[A-Za-z0-9]{8}$/.test(tmxOrgId) && tmxOrgId.toUpperCase() !== 'YOUR8CHR',
 }).replace(/</g, '\\u003c');
 // Changing this URI forces ChatGPT to use the corrected MCP Apps resource.
-const checkoutUri = 'ui://sean-shop/checkout-v4.html';
+const checkoutUri = 'ui://sean-shop/checkout-v8.html';
 
 const tools = [
   {
@@ -76,21 +77,26 @@ const widget = `<!doctype html>
   .totals { margin: 18px 0; padding: 15px 16px; border-radius: 14px; background: #f3f2eb; } .line { display: flex; justify-content: space-between; padding: 4px 0; color: #68746f; font-size: 12px; } .line strong { color: #18312a; } .total { margin-top: 9px; padding-top: 12px; border-top: 1px solid #d9d8d0; color: #13231f; font-size: 16px; font-weight: 800; }
   .trust { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid #dce8de; border-radius: 13px; background: #f5faf5; } .shield { display: grid; flex: none; width: 25px; height: 25px; place-items: center; border-radius: 9px; background: #173e35; color: #d9fb6a; font-size: 13px; } .trust-copy { color: #4d625a; font-size: 11px; line-height: 1.45; } .trust-copy b { display: block; margin-bottom: 1px; color: #1f473d; font-size: 12px; }
   .cta { width: 100%; margin-top: 17px; padding: 14px 16px; border: 0; border-radius: 12px; color: #13231f; background: #d9fb6a; box-shadow: inset 0 -2px 0 rgba(0,0,0,.12); font-size: 14px; font-weight: 850; cursor: pointer; transition: transform .15s ease, filter .15s ease; } .cta:hover:not(:disabled) { filter: brightness(.96); transform: translateY(-1px); } .cta:disabled { cursor: wait; opacity: .52; }
-  .note { margin: 11px 0 0; color: #78827d; font-size: 10px; line-height: 1.4; text-align: center; } .error { padding: 24px; color: #893b32; text-align: center; } @media (max-width: 360px) { .hero, .content { padding-left: 18px; padding-right: 18px; } }
+  .note { margin: 11px 0 0; color: #78827d; font-size: 10px; line-height: 1.4; text-align: center; } .error { padding: 24px; color: #893b32; text-align: center; } .success-mark { display: grid; width: 54px; height: 54px; place-items: center; margin-bottom: 17px; border-radius: 18px; color: #173e35; background: #d9fb6a; box-shadow: 5px 5px 0 #173e35; font-size: 26px; font-weight: 900; } #confirmation h2 { margin: 0; color: #173e35; font-family: Georgia, serif; font-size: 29px; font-weight: 400; letter-spacing: -.035em; } .success-copy { margin: 9px 0 20px; color: #66756e; font-size: 13px; line-height: 1.5; } .session { padding: 14px; border: 1px solid #dce8de; border-radius: 13px; background: #f5faf5; } .session span { display: block; margin-bottom: 7px; color: #6a7c74; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; } .session code { display: block; overflow-wrap: anywhere; color: #174336; font-size: 11px; } @media (max-width: 360px) { .hero, .content { padding-left: 18px; padding-right: 18px; } }
 </style></head><body>
   <main class="checkout"><header class="hero"><div class="eyebrow">Sean Shop · secure checkout</div><h1>One last look.</h1><p>Your items are reserved while you review the final total.</p></header>
-  <section class="content"><p class="section-label">Your order</p><div id="order" class="items">Loading your cart…</div>
+  <section id="checkout-content" class="content"><p class="section-label">Your order</p><div id="order" class="items">Loading your cart…</div>
   <div id="totals" class="totals" hidden></div>
   <div class="trust"><span class="shield">✓</span><div id="tmx" class="trust-copy"><b>Verifying this checkout</b>Preparing secure device profiling…</div></div>
-  <button id="confirm" class="cta" disabled>Confirm demo order <span aria-hidden="true">→</span></button><p class="note">No payment details are collected in this demo.</p></section></main>
+  <button id="confirm" class="cta" disabled>Confirm demo order <span aria-hidden="true">→</span></button><p class="note">No payment details are collected in this demo.</p></section>
+  <section id="confirmation" class="content" hidden><div class="success-mark">✓</div><p class="section-label">Order confirmed</p><h2>Thank you for your order.</h2><p class="success-copy">Your Sean Shop order is confirmed and we’ve saved the details below.</p><div class="session"><span>Profiling session ID</span><code id="session-id"></code></div><p class="note">Keep this ID handy if you need help with this checkout.</p></section></main>
   <script>
     const order = document.querySelector('#order');
     const totals = document.querySelector('#totals');
     const tmx = document.querySelector('#tmx');
     const confirm = document.querySelector('#confirm');
+    const checkoutContent = document.querySelector('#checkout-content');
+    const confirmation = document.querySelector('#confirmation');
+    const sessionId = document.querySelector('#session-id');
     const fmt = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n / 100);
     const profileConfig = ${tmxConfig};
     let checkout;
+    let profiledSessionId;
 
     function render(result) {
       checkout = result?.structuredContent?.checkout || result?.checkout || window.openai?.toolOutput?.checkout;
@@ -98,11 +104,15 @@ const widget = `<!doctype html>
         order.className = 'error'; order.textContent = 'Checkout details are unavailable. Please reopen checkout from your cart.';
         return;
       }
+      // Start profiling at the earliest point possible: when this view receives its checkout session.
+      if (profiledSessionId !== checkout.sessionId) {
+        profiledSessionId = checkout.sessionId;
+        startProfiling(checkout.sessionId);
+      }
       order.innerHTML = checkout.cart.items.map(i => '<div class="item"><span class="qty">' + i.quantity + '×</span><div><div class="name">' + i.name + '</div><div class="unit">' + fmt(i.unitPriceCents) + ' each</div></div><div class="price">' + fmt(i.lineTotalCents) + '</div></div>').join('');
       totals.hidden = false;
       totals.innerHTML = '<div class="line"><span>Subtotal</span><strong>' + fmt(checkout.cart.subtotalCents) + '</strong></div><div class="line"><span>Shipping</span><strong>' + fmt(checkout.cart.shippingCents) + '</strong></div><div class="line"><span>Estimated tax</span><strong>' + fmt(checkout.cart.taxCents) + '</strong></div><div class="line total"><span>Total</span><span>' + fmt(checkout.cart.totalCents) + '</span></div>';
       confirm.disabled = false;
-      startProfiling(checkout.sessionId);
     }
 
     async function startProfiling(sessionId) {
@@ -112,10 +122,12 @@ const widget = `<!doctype html>
         script.src = '${base}/vendor/fp-clientlib-v6_0.js';
         script.onload = () => {
           try {
+            if (typeof window.threatmetrix?.profile !== 'function') throw new Error('ThreatMetrix profile API was not registered');
             window.tmx_profiling_complete = () => tmx.innerHTML = '<b>Checkout protection verified</b>Your device profile was securely checked.';
-            threatmetrix.profile(profileConfig.tmxDomain, profileConfig.tmxOrgId, sessionId, 'checkout', threatmetrix.load_method.RUN_IMMEDIATE);
-            tmx.innerHTML = '<b>Checkout protection is active</b>Secure device profiling is in progress.';
-          } catch (_) { tmx.innerHTML = '<b>Checkout protection could not start</b>Check your TMX credentials and profiling domain.'; }
+            window.threatmetrix.profile(profileConfig.tmxDomain, profileConfig.tmxOrgId, sessionId, 'checkout', window.threatmetrix.load_method.RUN_IMMEDIATE);
+            console.info('ThreatMetrix profiling started', { domain: profileConfig.tmxDomain, sessionId });
+            tmx.innerHTML = '<b>Checkout protection is active</b>Secure device profiling has started.';
+          } catch (error) { console.error('ThreatMetrix profiling did not start', error); tmx.innerHTML = '<b>Checkout protection could not start</b>' + error.message; }
         };
         script.onerror = () => tmx.innerHTML = '<b>Checkout protection could not load</b>Confirm PUBLIC_BASE_URL points to this HTTPS deployment.';
         document.head.append(script);
@@ -127,12 +139,21 @@ const widget = `<!doctype html>
       if (event.data.method === 'ui/notifications/tool-result') render(event.data.params);
     });
     if (window.openai?.toolOutput) render({ checkout: window.openai.toolOutput.checkout });
+    function showConfirmation() {
+      checkoutContent.hidden = true;
+      confirmation.hidden = false;
+      sessionId.textContent = checkout.sessionId;
+    }
     confirm.onclick = async () => {
       if (!checkout || !window.openai?.callTool) return;
       confirm.disabled = true;
+      confirm.textContent = 'Confirming your order…';
       try {
-        const result = await window.openai.callTool('complete_checkout', { checkoutId: checkout.id });
-        confirm.textContent = result.content?.[0]?.text || 'Order confirmed ✓';
+        await Promise.race([
+          window.openai.callTool('complete_checkout', { checkoutId: checkout.id }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Confirmation timed out')), 15000)),
+        ]);
+        showConfirmation();
       } catch (_) { confirm.disabled = false; confirm.textContent = 'Could not confirm — try again'; }
     };
   </script>
@@ -185,15 +206,14 @@ http.createServer(async (request, response) => {
       let result;
       if (rpc.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'sean-shop', version: '2.1.0' } };
       else if (rpc.method === 'tools/list') result = { tools };
-      else if (rpc.method === 'resources/read' && rpc.params?.uri === checkoutUri) result = { contents: [{ uri: checkoutUri, mimeType: 'text/html;profile=mcp-app', text: widget, _meta: { ui: { prefersBorder: true, csp: { connectDomains: [base, tmxOrigin], resourceDomains: [base, tmxOrigin] } } } }] };
+      else if (rpc.method === 'resources/read' && rpc.params?.uri === checkoutUri) result = { contents: [{ uri: checkoutUri, mimeType: 'text/html;profile=mcp-app', text: widget, _meta: { ui: { prefersBorder: true, csp: { connectDomains: [base, tmxOrigin], resourceDomains: [base, tmxOrigin], frameDomains: [tmxOrigin] } } } }] };
       else if (rpc.method === 'tools/call') result = call(rpc.params?.name, rpc.params?.arguments || {});
       else return json(response, 200, { jsonrpc: '2.0', id, error: { code: -32601, message: 'Method not found' } }, headers);
       return json(response, 200, { jsonrpc: '2.0', id, result }, headers);
     }
     if (url.pathname === '/api/products') return json(response, 200, products);
     if (url.pathname === '/api/config') {
-      const orgId = process.env.TMX_ORG_ID || '';
-      return json(response, 200, { tmxDomain, tmxOrgId: orgId, tmxConfigured: /^[A-Za-z0-9]{8}$/.test(orgId) });
+      return json(response, 200, { tmxDomain, tmxOrgId, tmxConfigured: /^[A-Za-z0-9]{8}$/.test(tmxOrgId) && tmxOrgId.toUpperCase() !== 'YOUR8CHR' });
     }
     const file = path.resolve(root, '.' + (url.pathname === '/' ? '/index.html' : url.pathname));
     if (!file.startsWith(root) || !fs.existsSync(file)) return json(response, 404, { error: 'Not found' });
